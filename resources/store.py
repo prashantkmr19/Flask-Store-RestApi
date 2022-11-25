@@ -35,7 +35,7 @@ class StoreList(MethodView):
         store = StoreModel(**store_data)
 
         try:
-            db.session.add()
+            db.session.add(store)
             db.session.commit()
 
         except IntegrityError:

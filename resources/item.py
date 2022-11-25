@@ -61,7 +61,7 @@ class ItemList(MethodView):
         item = ItemModel(**item_data)
 
         try:
-            db.session.add()
+            db.session.add(item)
             db.session.commit()
 
         except SQLAlchemyError:

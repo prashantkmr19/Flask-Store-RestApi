@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 from flask_smorest import Api
 import os
+from dotenv import load_dotenv
 
 from flask_jwt_extended import JWTManager
 from blocklist import BLOCKLIST
@@ -17,6 +18,7 @@ import models
 
 def create_app(db_url=None):
     app = Flask(__name__)
+    load_dotenv()
 
     app.config["PROPAGATE_EXCEPTIONS"] = True
     app.config["API_TITLE"] = "Store REST API"

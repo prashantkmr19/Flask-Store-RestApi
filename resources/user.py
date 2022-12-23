@@ -1,3 +1,7 @@
+import os
+import requests
+import jinja2
+from sqlalchemy import or_
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from passlib.hash import pbkdf2_sha256
@@ -5,24 +9,52 @@ from flask_jwt_extended import create_access_token,get_jwt,jwt_required, create_
 
 from db import db
 from models import UserModel
-from schemas import UserSchema
+from schemas import UserSchema, UserRegisterSchema
 from blocklist import BLOCKLIST
 
 blp = Blueprint("Users", "users", description="Operations on users")
 
+template_loader = jinja2.FileSystemLoader("templates")
+template_env = jinja2.Environment(loader=template_loader)
+
+def render_template(template_filename, **context):
+    return template_env.get_template(template_filename).render(**context)
+
+def send_simple_message(to, subject, body, html, render_template):
+    domain = os.getenv("MAILGUN_DOMAIN")
+    return requests.post(
+        f"https://app.mailgun.com/app/sending/domains/{domain}/messages",
+        auth=("api", os.getenv("MAILGUN_API_KEY")),
+        data={
+            "from": f"Prashant Kumar <mailgun@{domain}>",
+            "to": [to],
+            "subject": subject,
+            "text": body,
+            "html": html,
+        },
+    )
+
 @blp.route("/register")
 class UserRegister(MethodView):
-    @blp.arguments(UserSchema)
+    @blp.arguments(UserRegisterSchema)
     def post(self, user_data):
-        if UserModel.query.filter(UserModel.username == user_data["username"]).first():
-            abort(409, message="A user with that username already exists.")
+        if UserModel.query.filter(or_(UserModel.email == user_data["email"],UserModel.username == user_data["username"])).first():
+            abort(409, message="A user with that username or email already exists.")
 
         user = UserModel(
             username=user_data["username"],
+            email=user_data["email"],
             password=pbkdf2_sha256.hash(user_data["password"]),
         )
         db.session.add(user)
         db.session.commit()
+
+        send_simple_message(
+            render_template("email/action.html", username=user.username),
+            to=user.email,
+            subject="Successfully signed up",
+            body=f"Hi {{ username }}! You have successfully signed up to the Stores REST API.",
+        )
 
         return {"message": "User created successfully."}, 201
 
